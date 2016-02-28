@@ -1,6 +1,7 @@
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include <SoftwareSerial.h>
+#include <Servo.h>
 
 #define I2C_ADDR    0x27
 /*
@@ -19,6 +20,7 @@
 #define PIN_BUTT_PUSH 8
 #define PIN_BUTT_ROT 7
 #define PIN_LED 13
+#define PIN_SERVO 5
 
 #define NO_CELL_VOLTAGE 0.2
 #define NO_CELL_STRING "-----"
@@ -65,9 +67,13 @@ unsigned char actual_function = 0;
 // vybrana vec na home
 unsigned char home_sel = 1;
 
+uint8_t servo_position = 90;
+
 LiquidCrystal_I2C	lcd(I2C_ADDR,20,4);
 
 SoftwareSerial mySerial(10, 11); // RX, TX
+
+Servo servo;
 
 /*
  * zpracovani preruseni od rotacniho enkoderu
@@ -119,30 +125,48 @@ void setup(){
  */
 void loop() {
 
-  // rotacni enkoder
+  // rotacni enkoder -------------------------------------------------
   if(rot_rot != 0){
     if(rot_rot == 1){
+
+      // home screen
       if(actual_function == 0){
         if(home_sel < 3){
           home_sel++;
           drawHomeDynamic();
         }
       }
+      
+      // servo app
+      if(actual_function == 2){
+        if(servo_position < 180) servo_position++;
+        servo.write(servo_position);
+        drawServoAppDynamic();
+      }
     }
     if(rot_rot == 2){
+      
+      // home screen
       if(actual_function == 0){
         if(home_sel > 1){
           home_sel--;
           drawHomeDynamic();
         }
       }
+      
+      // servo app
+      if(actual_function == 2){
+        if(servo_position > 0) servo_position--;
+        servo.write(servo_position);
+        drawServoAppDynamic();
+      }
     }
     rot_rot = 0;
   }
 
-  // tlacitko mackaci
+  // tlacitko mackaci -------------------------------------------------
   if(digitalRead(PIN_BUTT_PUSH) == LOW && butt_push_block == 0){
-    if(actual_function == 1){
+    if(actual_function == 1 || actual_function == 2){
       setActualFunction(0);
     }
     butt_push_block = BUTTON_BLOCK;
@@ -150,19 +174,25 @@ void loop() {
     if(butt_push_block > 0) butt_push_block--;
   }
 
-  // tlacitko enkoder
+  // tlacitko enkoder -------------------------------------------------
   if(digitalRead(PIN_BUTT_ROT) == LOW && butt_rot_block == 0){
+
+    // home screen
     if(actual_function == 0){
       if(home_sel == 1){
         setActualFunction(1);
       }
+      if(home_sel == 2){
+        setActualFunction(2);
+      }
     }
+    
     butt_rot_block = BUTTON_BLOCK;
   } else {
     if(butt_rot_block > 0) butt_rot_block--;
   }
 
-  // LipoCard
+  // LipoCard ------------------------------------------------
   if(actual_function == 1){
     // visi nejaka data na seriaku?
     if(mySerial.available() > 0){
@@ -263,6 +293,10 @@ void loop() {
     }
   }
 
+  // Servo ------------------------------------------------
+  if(actual_function == 2){
+    
+  }
 }
 
 /**
@@ -295,9 +329,11 @@ String getFormatedTime(long millis){
  * Nastaveni aktualni funkce
  */
 void setActualFunction(unsigned char fce){
-  actual_function = fce;
 
   if(fce == 0){
+    if(actual_function == 2){
+      closeServoApp();
+    }
     drawHomeStatic();
     drawHomeDynamic();
   }
@@ -305,6 +341,12 @@ void setActualFunction(unsigned char fce){
   if(fce == 1){
     drawLipoCardStaticA();
   }
+
+  if(fce == 2){
+    initServoApp();
+  }
+
+  actual_function = fce;
 }
 
 /**
@@ -345,5 +387,55 @@ void drawLipoCardStaticA(){
   lcd.print("             3|     ");
   lcd.setCursor (0,3);
   lcd.print("             4|     ");
+}
+
+void initServoApp(){
+  servo.attach(PIN_SERVO);
+  
+  // displej
+  lcd.setCursor (0,0);
+  lcd.print("                    ");
+  lcd.setCursor (0,1);
+  lcd.print("                    ");
+  lcd.setCursor (0,2);
+  lcd.print("                    ");
+  lcd.setCursor (0,3);
+  lcd.print("                    ");
+  drawServoAppDynamic();
+}
+
+void closeServoApp(){
+  servo.detach();
+}
+
+void drawServoAppDynamic(){
+  char bar[21];
+  uint8_t dilku;
+  uint8_t i;
+
+  strcpy(bar, "                    ");
+  bar[9] = '>';
+  bar[10] = '<';
+  
+  if(servo_position < 90){
+    dilku = ceil((10.0 * (90 - servo_position)) / 90.0);
+    for(i = 0; i < dilku; i++){
+      bar[9-i] = LCD_CHAR_BLOCK;
+    }
+  }
+  if(servo_position > 90){
+    dilku = ceil((10.0 * (servo_position-90)) / 90.0);
+    for(i = 0; i < dilku; i++){
+      bar[10+i] = LCD_CHAR_BLOCK;
+    }
+  }
+  
+  lcd.setCursor(0,3);
+  lcd.print(bar);
+  
+  lcd.setCursor(0,0);
+  lcd.print("Position:       ");
+  lcd.setCursor(10,0);
+  lcd.print(servo_position);
 }
 

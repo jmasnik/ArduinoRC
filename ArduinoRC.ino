@@ -2,18 +2,10 @@
 #include <LiquidCrystal_I2C.h>
 #include <SoftwareSerial.h>
 #include <Servo.h>
+#include "DHT.h"
 
+#define DHTTYPE DHT22
 #define I2C_ADDR    0x27
-/*
-#define BACKLIGHT_PIN     3
-#define En_pin  2
-#define Rw_pin  1
-#define Rs_pin  0
-#define D4_pin  4
-#define D5_pin  5
-#define D6_pin  6
-#define D7_pin  7
-*/
 
 #define PIN_ROT_A 2
 #define PIN_ROT_B 4
@@ -21,6 +13,7 @@
 #define PIN_BUTT_ROT 7
 #define PIN_LED 13
 #define PIN_SERVO 5
+#define PIN_DHT 3
 
 #define NO_CELL_VOLTAGE 0.2
 #define NO_CELL_STRING "-----"
@@ -67,12 +60,20 @@ unsigned char actual_function = 0;
 // vybrana vec na home
 unsigned char home_sel = 1;
 
+// hodnoty z dht
+float dht_temperature;
+float dht_humidity;
+
 uint8_t servo_position = 90;
 
 LiquidCrystal_I2C	lcd(I2C_ADDR,20,4);
 
 SoftwareSerial mySerial(10, 11); // RX, TX
 
+// DHT teplomer
+DHT dht(PIN_DHT, DHTTYPE);
+
+// Servo
 Servo servo;
 
 /*
@@ -111,9 +112,13 @@ void setup(){
 
   // set the data rate for the SoftwareSerial port
   mySerial.begin(9600);  
-  
+
+  // LCD
   lcd.begin();
   lcd.backlight();
+
+  // DHT intit
+  dht.begin();
   
   line = "";
 
@@ -166,7 +171,7 @@ void loop() {
 
   // tlacitko mackaci -------------------------------------------------
   if(digitalRead(PIN_BUTT_PUSH) == LOW && butt_push_block == 0){
-    if(actual_function == 1 || actual_function == 2){
+    if(actual_function == 1 || actual_function == 2 || actual_function == 3){
       setActualFunction(0);
     }
     butt_push_block = BUTTON_BLOCK;
@@ -184,6 +189,9 @@ void loop() {
       }
       if(home_sel == 2){
         setActualFunction(2);
+      }
+      if(home_sel == 3){
+        setActualFunction(3);
       }
     }
     
@@ -297,6 +305,16 @@ void loop() {
   if(actual_function == 2){
     
   }
+
+  // Teplomer ---------------------------------------------
+  if(actual_function == 3){
+    delay(1000);
+
+    dht_temperature = dht.readTemperature();
+    dht_humidity = dht.readHumidity();
+
+    drawTempDynamic();
+  }
 }
 
 /**
@@ -344,6 +362,10 @@ void setActualFunction(unsigned char fce){
 
   if(fce == 2){
     initServoApp();
+  }
+
+  if(fce == 3){
+    drawTempStatic();
   }
 
   actual_function = fce;
@@ -437,5 +459,24 @@ void drawServoAppDynamic(){
   lcd.print("Position:       ");
   lcd.setCursor(10,0);
   lcd.print(servo_position);
+}
+
+void drawTempStatic(){
+  // displej
+  lcd.setCursor (0,0);
+  lcd.print("Temperature        C");
+  lcd.setCursor (0,1);
+  lcd.print("Humidity           %");
+  lcd.setCursor (0,2);
+  lcd.print("                    ");
+  lcd.setCursor (0,3);
+  lcd.print("                    ");
+}
+
+void drawTempDynamic(){
+  lcd.setCursor (13,0);
+  lcd.print(dht_temperature);
+  lcd.setCursor (13,1);
+  lcd.print(dht_humidity);
 }
 

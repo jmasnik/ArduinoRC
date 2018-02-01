@@ -23,6 +23,7 @@
 // znaky (127 druha sipka)
 #define LCD_CHAR_BLOCK (char)255
 #define LCD_CHAR_SIPKA (char)126
+#define LCD_CHAR_DEG (char)223
 
 int n = 1;
 
@@ -62,7 +63,11 @@ unsigned char home_sel = 1;
 
 // hodnoty z dht
 float dht_temperature;
+float dht_temperature_min;
+float dht_temperature_max;
 float dht_humidity;
+float dht_humidity_min;
+float dht_humidity_max;
 
 uint8_t servo_position = 90;
 
@@ -114,7 +119,7 @@ void setup(){
   mySerial.begin(9600);  
 
   // LCD
-  lcd.begin();
+  lcd.init();
   lcd.backlight();
 
   // DHT intit
@@ -308,12 +313,18 @@ void loop() {
 
   // Teplomer ---------------------------------------------
   if(actual_function == 3){
-    delay(1000);
 
     dht_temperature = dht.readTemperature();
+    if(dht_temperature < dht_temperature_min) dht_temperature_min = dht_temperature;
+    if(dht_temperature > dht_temperature_max) dht_temperature_max = dht_temperature;
+    
     dht_humidity = dht.readHumidity();
+    if(dht_humidity < dht_humidity_min) dht_humidity_min = dht_humidity;
+    if(dht_humidity > dht_humidity_max) dht_humidity_max = dht_humidity;
 
     drawTempDynamic();
+    
+    delay(1000);
   }
 }
 
@@ -366,6 +377,14 @@ void setActualFunction(unsigned char fce){
 
   if(fce == 3){
     drawTempStatic();
+
+    dht_temperature = dht.readTemperature();
+    dht_temperature_min = dht_temperature;
+    dht_temperature_max = dht_temperature;
+    
+    dht_humidity = dht.readHumidity();
+    dht_humidity_min = dht_humidity;
+    dht_humidity_max = dht_humidity;
   }
 
   actual_function = fce;
@@ -465,18 +484,35 @@ void drawTempStatic(){
   // displej
   lcd.setCursor (0,0);
   lcd.print("Temperature        C");
+  lcd.setCursor (18,0);
+  lcd.print(LCD_CHAR_DEG);
+  
   lcd.setCursor (0,1);
-  lcd.print("Humidity           %");
+  lcd.print("          C -      C");
+  lcd.setCursor (18,1);
+  lcd.print(LCD_CHAR_DEG);
+  lcd.setCursor (9,1);
+  lcd.print(LCD_CHAR_DEG);
+  
   lcd.setCursor (0,2);
-  lcd.print("                    ");
+  lcd.print("Humidity           %");
   lcd.setCursor (0,3);
-  lcd.print("                    ");
+  lcd.print("          % -      %");
 }
 
 void drawTempDynamic(){
-  lcd.setCursor (13,0);
-  lcd.print(dht_temperature);
-  lcd.setCursor (13,1);
-  lcd.print(dht_humidity);
+  lcd.setCursor (14,0);
+  lcd.print(dht_temperature,1);
+  lcd.setCursor (5,1);
+  lcd.print(dht_temperature_min,1);
+  lcd.setCursor (14,1);
+  lcd.print(dht_temperature_max,1);
+  
+  lcd.setCursor (14,2);
+  lcd.print(dht_humidity,1);
+  lcd.setCursor (5,3);
+  lcd.print(dht_humidity_min,1);
+  lcd.setCursor (14,3);
+  lcd.print(dht_humidity_max,1);
 }
 
